@@ -1,11 +1,12 @@
 package com.example.controller;
 
+import com.example.fegin.uu.UuApi;
+import com.example.fegin.uu.dto.BaseResponse;
+import com.example.fegin.uu.dto.InventoryRequest;
+import com.example.fegin.uu.dto.InventoryResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.example.fegin.uu.UuApi;
-import com.example.fegin.uu.dto.*;
 
 @RestController
 public class IndexController {

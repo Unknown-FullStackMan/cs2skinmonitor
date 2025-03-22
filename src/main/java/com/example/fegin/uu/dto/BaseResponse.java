@@ -12,6 +12,9 @@ public class BaseResponse<T> implements Serializable {
     private String timestamp ;
     private T data;
 
+    public boolean isSuccess() {
+        return code == 0 || msg.equals("成功");
+    }
 
     
 }
