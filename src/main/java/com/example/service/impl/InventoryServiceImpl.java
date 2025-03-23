@@ -2,17 +2,22 @@ package com.example.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.example.common.SkinTypeEnum;
+import com.example.common.dto.SkinAssetTotalInfoVo;
+import com.example.entity.ProcessedOrder;
 import com.example.entity.SkinItem;
+import com.example.entity.Wallet;
 import com.example.fegin.uu.UuApi;
-import com.example.fegin.uu.dto.BaseResponse;
-import com.example.fegin.uu.dto.InventoryRequest;
-import com.example.fegin.uu.dto.InventoryResponse;
+import com.example.fegin.uu.dto.*;
+import com.example.mapper.ProcessedOrderMapper;
 import com.example.mapper.SkinItemMapper;
-import com.example.service.PullInventoryService;
+import com.example.mapper.WalletMapper;
+import com.example.service.InventoryService;
+import com.example.service.WalletService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -28,18 +33,25 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Service
-public class PullInventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinItem> implements PullInventoryService {
+public class InventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinItem> implements InventoryService {
 
     @Autowired
     private UuApi uuApi;
 
+    @Autowired
+    private WalletService walletService;
+    @Autowired
+    private ProcessedOrderMapper processedOrderMapper;
+    @Autowired
+    private WalletMapper walletMapper;
+
     @Override
     @Transactional
-    public void pullInventory() {
-        BaseResponse<InventoryResponse> inventoryResponse = uuApi.list(new InventoryRequest(1000));
-        InventoryResponse inventory = inventoryResponse.getData();
+    public void initLocal() {
+        BaseResponse<InventoryResp> inventoryResponse = uuApi.list(new InventoryReq(1000));
+        InventoryResp inventory = inventoryResponse.getData();
         log.info("库存数量:{} ,页数数量：{}", inventory.getTotalCount(),inventory.getTotalPages());
-        saveToDB(inventory);
+        Double count = saveToDB(inventory);
 
 //        if(inventory.getTotalPages() > 1 ) {
 //            int pages = ( inventory.getItemCount() % 50 )==0 ?  inventory.getItemCount() : (inventory.getItemCount() / 50) + 1;
@@ -49,29 +61,39 @@ public class PullInventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinIte
 //                saveToDB(uuApi.list(inventoryRequest).getData());
 //            }
 //        }
+        Wallet wallet = new Wallet();
+        wallet.setCost(String.valueOf(count));
+        wallet.setBalance(uuApi.account(new AccountInfoReq()).getData().getBalance());
+        walletService.initWallet(wallet);
+
+        //借用ProcessedOrder表,记录初始化的时间,避免定时任务拉去订单数据重复
+        //TODO 换成redis
+        ProcessedOrder order = processedOrderMapper.selectById(1);
+        order.setTimestamp(System.currentTimeMillis());
+        processedOrderMapper.updateById(order);
     }
 
-    public void saveToDB(InventoryResponse inventory) {
+    public Double saveToDB(InventoryResp inventory) {
         log.info("save inventory from uu, size={}",inventory.getItemsInfos().size());
-        List<SkinItem> skinItemLists = inventory.getItemsInfos().stream().collect(Collectors.groupingBy(InventoryResponse.ItemsInfo::getCommodityName))
+        List<SkinItem> skinItemLists = inventory.getItemsInfos().stream().collect(Collectors.groupingBy(InventoryResp.ItemsInfo::getCommodityName))
                 .entrySet()
                 .stream()
                 .flatMap(entry -> {
                     List<SkinItem> skinItems = new ArrayList<>();
-                    List<InventoryResponse.ItemsInfo> itemsInfos = entry.getValue();
-                    if(needMerge(entry.getKey())) {
+                    List<InventoryResp.ItemsInfo> itemsInfos = entry.getValue();
+                    if(SkinTypeEnum.needMerge(entry.getKey())) {
                         SkinItem skinItem = new SkinItem();
                         skinItem.setName(entry.getKey());
                         skinItem.setMerge(true);
                         skinItem.setSteamAssetId(itemsInfos.get(0).getSteamAssetId());
                         skinItem.setQuantity(itemsInfos.size());
-                        Optional<InventoryResponse.ItemsInfo> optionalItem = itemsInfos.stream().filter(e -> Objects.nonNull(e.getAssetBuyPrice())).findFirst();
+                        Optional<InventoryResp.ItemsInfo> optionalItem = itemsInfos.stream().filter(e -> Objects.nonNull(e.getAssetBuyPrice())).findFirst();
                         BigDecimal purchasePrice = optionalItem.map(e -> BigDecimal.valueOf(e.getAssetBuyPrice()).multiply(new BigDecimal(skinItem.getQuantity()))).orElse(BigDecimal.ZERO);
                         skinItem.setPurchasePrice(purchasePrice.toString());
                         skinItems.add(skinItem);
                         return skinItems.stream();
                     }else {
-                        for (InventoryResponse.ItemsInfo itemsInfo : itemsInfos) {
+                        for (InventoryResp.ItemsInfo itemsInfo : itemsInfos) {
                             SkinItem skinItem = new SkinItem();
                             skinItem.setName(itemsInfo.getCommodityName());
                             skinItem.setMerge(false);
@@ -84,13 +106,28 @@ public class PullInventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinIte
                         return skinItems.stream();
                     }
                 }).collect(Collectors.toList());
-
         saveBatch(skinItemLists);
+        log.info("init skin items to local db finish!");
+        return skinItemLists.stream().filter(e-> StringUtils.hasText(e.getPurchasePrice())).mapToDouble(e -> Double.parseDouble(e.getPurchasePrice())).sum();
     }
 
-    public boolean needMerge(String name) {
-        return SkinTypeEnum.noAbradeSkinList().stream().anyMatch(name::contains);
+
+
+
+    @Override
+    public String valuation() {
+        BaseResponse<PcInventoryResp> inventoryResponse = uuApi.listPc(new PcInventoryReq(1000));
+        return inventoryResponse.getData().getValuation();
     }
 
-
+    @Override
+    public SkinAssetTotalInfoVo assetAllInfo() {
+        SkinAssetTotalInfoVo skinAssetTotalInfoVo = new SkinAssetTotalInfoVo();
+        Wallet wallet = walletMapper.selectById(1);
+        skinAssetTotalInfoVo.setMarketValue(uuApi.listPc(new PcInventoryReq(1000)).getData().getValuation());
+        skinAssetTotalInfoVo.setCost(wallet.getCost());
+        skinAssetTotalInfoVo.setBalance(wallet.getBalance());
+        skinAssetTotalInfoVo.setTotalProFitAndLoss(String.valueOf(new BigDecimal(skinAssetTotalInfoVo.getCost()).subtract(new BigDecimal(wallet.getMarketValue()))));
+        return skinAssetTotalInfoVo;
+    }
 }

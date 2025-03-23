@@ -10,10 +10,24 @@ import retrofit2.http.POST;
 import com.example.fegin.uu.dto.*;
 
 @RetrofitClient(baseUrl = "${uu.baseUrl}")
-@Intercept(handler  = AuthInterceptor.class)
-@Intercept(handler  = ResponseInterceptor.class)
+@Intercept(handler = AuthInterceptor.class)
+@Intercept(handler = ResponseInterceptor.class)
 public interface UuApi {
 
     @POST("/api/youpin/commodity/user/inventory/price/trend")
-    BaseResponse<InventoryResponse> list(@Body InventoryRequest inventoryRequest);
+    BaseResponse<InventoryResp> list(@Body InventoryReq inventoryReq);
+
+    @POST("/api/youpin/pc/inventory/list")
+    BaseResponse<PcInventoryResp> listPc(@Body PcInventoryReq inventoryRequest);
+
+    @POST("/api/youpin/bff/payment/v1/user/account/info")
+    BaseResponse<AccountInfoResp> account(@Body AccountInfoReq accountInfoReq);
+
+    @POST("/api/youpin/bff/trade/sale/v1/buy/list")
+    BaseResponse<BuyListResp> buyList(@Body BuyListReq buyListReq);
+
+    @POST("/api/youpin/bff/trade/v1/order/query/detail")
+    BaseResponse<BuyDetailResp> buyOrderDetail(@Body BuyDetailReq buyDetailReq);
+
+
 }

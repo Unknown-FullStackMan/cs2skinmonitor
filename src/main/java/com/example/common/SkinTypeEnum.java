@@ -40,4 +40,8 @@ public enum SkinTypeEnum {
     public static List<String> noAbradeSkinList() {
         return Arrays.asList(STICKER.typeName, WEAPON_BOX.typeName, CAPSULE.typeName, GRAFFITI.typeName);
     }
+
+    public static boolean needMerge(String name) {
+        return SkinTypeEnum.noAbradeSkinList().stream().anyMatch(name::contains);
+    }
 }

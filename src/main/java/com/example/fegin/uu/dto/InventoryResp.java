@@ -5,7 +5,7 @@ import java.util.List;
 import lombok.Data;
 
 @Data
-public class InventoryResponse{
+public class InventoryResp {
 
     //实际全部库存数量
     private int totalCount;
