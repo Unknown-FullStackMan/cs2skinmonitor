@@ -13,14 +13,14 @@ import java.util.List;
 public class BuyDetailResp {
     private String orderNumber;
 
-    private PaymentTypeVo paymentTypeVo;
+    private PaymentTypeVo paymentTypeVO;
 
     private Amount amount;
 
     private Integer commodityNum;
     private Integer orderFailNum;
 
-    private UserCommodityVO userCommodityVOList;
+    private List<UserCommodityVO> userCommodityVOList;
 
     @Data
     public static class PaymentTypeVo{

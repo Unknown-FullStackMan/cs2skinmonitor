@@ -17,6 +17,7 @@ import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
@@ -46,6 +47,7 @@ public class OrderServiceImpl implements OrderService {
     private WalletMapper walletMapper;
 
     @Override
+    @Transactional
     public void buyOrderHandler() {
         BuyListResp resp = uuApi.buyList(new BuyListReq(50)).getData();
         //获取今日凌晨时间戳
@@ -63,6 +65,7 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
+        log.info("今日新增订单:{}", lastOrderList);
         ProcessedOrder existProcessOrder = processedOrderMapper.selectByDate(timestamp);
         if(existProcessOrder != null){
             Gson gson = new Gson();
@@ -70,6 +73,7 @@ public class OrderServiceImpl implements OrderService {
             List<String> handlerList = new ArrayList<>(lastOrderList);
             //获取未处理订单
             lastOrderList.removeAll(orderNoList);
+            log.info("本次处理订单:{}", lastOrderList);
             for (String orderNo : lastOrderList) {
                 BuyDetailResp detailResp = uuApi.buyOrderDetail(new BuyDetailReq(orderNo)).getData();
                 updateWallet(detailResp);
@@ -91,20 +95,21 @@ public class OrderServiceImpl implements OrderService {
 
     public void updateWallet(BuyDetailResp detailResp) {
         Wallet myWallet = walletMapper.selectById(1);
-        log.info("支付方式={},金额={}",detailResp.getPaymentTypeVo().getName(),detailResp.getAmount().getAmount());
-        if(!"余额".equalsIgnoreCase(detailResp.getPaymentTypeVo().getName())) {
+        log.info("支付方式={},金额={}",detailResp.getPaymentTypeVO().getName(),detailResp.getAmount().getAmount());
+        if(!"余额".equalsIgnoreCase(detailResp.getPaymentTypeVO().getName())) {
             log.info("不是余额支付，成本需要增加");
             myWallet.setCost(String.valueOf(new BigDecimal(myWallet.getCost()).add(new BigDecimal(detailResp.getAmount().getAmount()))));
             walletMapper.updateById(myWallet);
         }else {
             log.info("余额支付，需要减去balance");
             myWallet.setBalance(String.valueOf(new BigDecimal(myWallet.getBalance()).subtract(new BigDecimal(detailResp.getAmount().getAmount()))));
+            myWallet.setCost(String.valueOf(new BigDecimal(myWallet.getCost()).add(new BigDecimal(detailResp.getAmount().getAmount()))));
             walletMapper.updateById(myWallet);
         }
     }
 
     public void updateInventory( BuyDetailResp detailResp) {
-        String commodityName = detailResp.getUserCommodityVOList().getCommodityVOList().get(0).getName();
+        String commodityName = detailResp.getUserCommodityVOList().get(0).getCommodityVOList().get(0).getName();
         if(SkinTypeEnum.needMerge(commodityName)) {
             SkinItem existSkinItem = skinItemMapper.selectBySkinName(commodityName);
             if(existSkinItem != null) {
@@ -121,7 +126,7 @@ public class OrderServiceImpl implements OrderService {
             }
         }else {
             List<SkinItem> list = new ArrayList<>();
-            for (BuyDetailResp.CommodityVO commodityVO : detailResp.getUserCommodityVOList().getCommodityVOList()) {
+            for (BuyDetailResp.CommodityVO commodityVO : detailResp.getUserCommodityVOList().get(0).getCommodityVOList()) {
                 SkinItem skinItem = new SkinItem();
                 skinItem.setMerge(false);
                 skinItem.setName(commodityVO.getName());

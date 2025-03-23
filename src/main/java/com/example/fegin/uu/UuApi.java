@@ -6,6 +6,8 @@ import com.github.lianjiatech.retrofit.spring.boot.interceptor.Intercept;
 import com.example.interceptor.AuthInterceptor;
 
 import retrofit2.http.Body;
+import retrofit2.http.Header;
+import retrofit2.http.Headers;
 import retrofit2.http.POST;
 import com.example.fegin.uu.dto.*;
 
@@ -27,6 +29,7 @@ public interface UuApi {
     BaseResponse<BuyListResp> buyList(@Body BuyListReq buyListReq);
 
     @POST("/api/youpin/bff/trade/v1/order/query/detail")
+    @Headers({"Host: api.youpin898.com","App-Version: 5.29.0"})
     BaseResponse<BuyDetailResp> buyOrderDetail(@Body BuyDetailReq buyDetailReq);
 
 
