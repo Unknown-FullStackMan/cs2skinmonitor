@@ -124,10 +124,12 @@ public class InventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinItem> i
     public SkinAssetTotalInfoVo assetAllInfo() {
         SkinAssetTotalInfoVo skinAssetTotalInfoVo = new SkinAssetTotalInfoVo();
         Wallet wallet = walletMapper.selectById(1);
-        skinAssetTotalInfoVo.setMarketValue(uuApi.listPc(new PcInventoryReq(1000)).getData().getValuation());
+        String valuation = uuApi.listPc(new PcInventoryReq(1000)).getData().getValuation();
+        valuation.substring(1);
+        skinAssetTotalInfoVo.setMarketValue(valuation.substring(1));
         skinAssetTotalInfoVo.setCost(wallet.getCost());
         skinAssetTotalInfoVo.setBalance(wallet.getBalance());
-        skinAssetTotalInfoVo.setTotalProFitAndLoss(String.valueOf(new BigDecimal(skinAssetTotalInfoVo.getCost()).subtract(new BigDecimal(wallet.getMarketValue()))));
+        skinAssetTotalInfoVo.setTotalProFitAndLoss(String.valueOf(new BigDecimal(skinAssetTotalInfoVo.getCost()).subtract(new BigDecimal(valuation.substring(1)))));
         return skinAssetTotalInfoVo;
     }
 }

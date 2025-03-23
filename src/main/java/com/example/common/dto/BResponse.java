@@ -23,5 +23,8 @@ public class BResponse<T> implements Serializable {
         return bResponse;
     }
 
+    public static  BResponse successResult() {
+        return new BResponse();
+    }
 
 }

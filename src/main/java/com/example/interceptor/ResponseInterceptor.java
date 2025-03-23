@@ -39,8 +39,7 @@ public class ResponseInterceptor extends BasePathMatchInterceptor {
                 BaseResponse<?> content = gson.fromJson(responseBodyString, BaseResponse.class);
                 // 检查业务逻辑是否成功
                 if(!content.isSuccess()) {
-                    log.error("请求uu接口报错: {}", responseBodyString);
-                    throw new RuntimeException("请求uu接口报错");
+                    throw new RuntimeException("请求uu接口报错:"+content.getMsg());
                 }else if(Objects.isNull(content.getData())){
                     log.error("请求数据为空: {}", responseBodyString);
                     throw new RuntimeException("请求数据为空");
