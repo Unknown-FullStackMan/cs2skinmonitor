@@ -14,7 +14,7 @@ public class SkinAssetTotalInfoVo {
 
     private String marketValue;
 
-    private String totalProFitAndLoss;
+    private Double totalProFitAndLoss;
 
     private String balance;
 

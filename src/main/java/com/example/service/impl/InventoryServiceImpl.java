@@ -133,7 +133,7 @@ public class InventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinItem> i
         skinAssetTotalInfoVo.setMarketValue(valuation.substring(1));
         skinAssetTotalInfoVo.setCost(wallet.getCost());
         skinAssetTotalInfoVo.setBalance(wallet.getBalance());
-        skinAssetTotalInfoVo.setTotalProFitAndLoss(String.valueOf(new BigDecimal(skinAssetTotalInfoVo.getCost()).subtract(new BigDecimal(valuation.substring(1)))));
+        skinAssetTotalInfoVo.setTotalProFitAndLoss(new BigDecimal(wallet.getBalance()).add(new BigDecimal(valuation.substring(1))).subtract(new BigDecimal(wallet.getCost())).doubleValue());
         return skinAssetTotalInfoVo;
     }
 }
