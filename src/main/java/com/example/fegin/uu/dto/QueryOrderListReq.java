@@ -10,14 +10,14 @@ import lombok.NoArgsConstructor;
  */
 @Data
 @NoArgsConstructor
-public class BuyListReq extends BaseRequest{
+public class QueryOrderListReq extends BaseRequest{
 
     //购买成功码
     private int orderStatus = 340;
     //关键字搜索
     private String keys;
 
-    public BuyListReq(int pageSize) {
+    public QueryOrderListReq(int pageSize) {
         super.setPageSize(pageSize);
     }
 }

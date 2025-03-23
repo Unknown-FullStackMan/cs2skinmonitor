@@ -87,9 +87,11 @@ public class InventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinItem> i
                         skinItem.setMerge(true);
                         skinItem.setSteamAssetId(itemsInfos.get(0).getSteamAssetId());
                         skinItem.setQuantity(itemsInfos.size());
+                        skinItem.setRemainingQuantity(itemsInfos.size());
                         Optional<InventoryResp.ItemsInfo> optionalItem = itemsInfos.stream().filter(e -> Objects.nonNull(e.getAssetBuyPrice())).findFirst();
                         BigDecimal purchasePrice = optionalItem.map(e -> BigDecimal.valueOf(e.getAssetBuyPrice()).multiply(new BigDecimal(skinItem.getQuantity()))).orElse(BigDecimal.ZERO);
                         skinItem.setPurchasePrice(purchasePrice.toString());
+                        skinItem.setPurchaseAvgPrice(optionalItem.map(e -> BigDecimal.valueOf(e.getAssetBuyPrice()).toString()).orElse("0"));
                         skinItems.add(skinItem);
                         return skinItems.stream();
                     }else {
@@ -100,7 +102,9 @@ public class InventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinItem> i
                             skinItem.setAbrade(itemsInfo.getAbrade());
                             skinItem.setSteamAssetId(itemsInfo.getSteamAssetId());
                             skinItem.setQuantity(1);
-                            skinItem.setPurchasePrice(Objects.isNull(itemsInfo.getAssetBuyPrice()) ? "" : String.valueOf(itemsInfo.getAssetBuyPrice()));
+                            skinItem.setRemainingQuantity(1);
+                            skinItem.setPurchasePrice(Objects.isNull(itemsInfo.getAssetBuyPrice()) ? "0" : String.valueOf(itemsInfo.getAssetBuyPrice()));
+                            skinItem.setPurchaseAvgPrice(skinItem.getPurchasePrice());
                             skinItems.add(skinItem);
                         }
                         return skinItems.stream();

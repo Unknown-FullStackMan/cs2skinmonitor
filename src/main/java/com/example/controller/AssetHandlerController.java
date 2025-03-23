@@ -23,7 +23,7 @@ public class AssetHandlerController {
     private OrderService orderService;
 
     /**
-     * 项目启动后 首先初始化饰品信息到本地数据库
+     * 项目启动后 首先初始化饰品信息到本地数据库 需要在uu上面定好购入价格和
      * @return
      */
     @GetMapping("/init")
@@ -38,4 +38,9 @@ public class AssetHandlerController {
         return "manual sync buyOrder successfully";
     }
 
+    @GetMapping("/sync/saleOrder/manually")
+    public String syncSaleOrder() {
+        orderService.saleOrderHandler();
+        return "manual sync buyOrder successfully";
+    }
 }

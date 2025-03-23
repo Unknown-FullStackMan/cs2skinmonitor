@@ -21,6 +21,8 @@ public interface SkinItemMapper extends BaseMapper<SkinItem> {
     SkinItem selectBySkinName(String name);
 
 
+    @Select("select * from skin_item where name = #{name} and abrade = #{abrade}")
+    SkinItem selectBySkinNameAndAbrade(String name,String abrade);
 
 
 

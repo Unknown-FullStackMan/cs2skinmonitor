@@ -32,9 +32,13 @@ public class SkinItem {
 
     private int quantity;
 
+    private String purchaseAvgPrice;
+
     private String salePrice;
 
     private int saleQuantity;
+
+    private String saleAvgPrice;
 
     private int remainingQuantity;
 

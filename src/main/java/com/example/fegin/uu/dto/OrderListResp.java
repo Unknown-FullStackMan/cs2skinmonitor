@@ -10,7 +10,7 @@ import java.util.List;
  * @Description
  */
 @Data
-public class BuyListResp {
+public class OrderListResp {
 
 
     private String total;

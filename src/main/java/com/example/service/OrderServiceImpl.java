@@ -5,10 +5,10 @@ import com.example.entity.ProcessedOrder;
 import com.example.entity.SkinItem;
 import com.example.entity.Wallet;
 import com.example.fegin.uu.UuApi;
-import com.example.fegin.uu.dto.BuyDetailReq;
-import com.example.fegin.uu.dto.BuyDetailResp;
-import com.example.fegin.uu.dto.BuyListReq;
-import com.example.fegin.uu.dto.BuyListResp;
+import com.example.fegin.uu.dto.OrderDetailReq;
+import com.example.fegin.uu.dto.OrderDetailResp;
+import com.example.fegin.uu.dto.QueryOrderListReq;
+import com.example.fegin.uu.dto.OrderListResp;
 import com.example.mapper.ProcessedOrderMapper;
 import com.example.mapper.SkinItemMapper;
 import com.example.mapper.WalletMapper;
@@ -19,8 +19,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -49,7 +51,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void buyOrderHandler() {
-        BuyListResp resp = uuApi.buyList(new BuyListReq(50)).getData();
+        OrderListResp resp = uuApi.buyList(new QueryOrderListReq(50)).getData();
         //获取今日凌晨时间戳
         LocalDateTime midnight = LocalDate.now().atStartOfDay();
         long timestamp = midnight.toInstant(ZoneOffset.ofHours(8)).toEpochMilli();
@@ -59,41 +61,41 @@ public class OrderServiceImpl implements OrderService {
             log.info("项目没有初始化本地库存,不进行购买订单的处理,请先初始化");
             return;
         }
-        List<String> lastOrderList = resp.getOrderList().stream().filter(e -> e.getFinishOrderTime() >= timestamp && e.getFinishOrderTime() > init).map(BuyListResp.Order::getOrderNo).collect(Collectors.toList());
+        List<String> lastOrderList = resp.getOrderList().stream().filter(e -> e.getFinishOrderTime() >= timestamp && e.getFinishOrderTime() > init).map(OrderListResp.Order::getOrderNo).collect(Collectors.toList());
         if(CollectionUtils.isEmpty(lastOrderList)) {
-            log.info("今日没有订单");
+            log.info("今日没有购买订单");
             return;
         }
 
-        log.info("今日新增订单:{}", lastOrderList);
+        log.info("今日新增购买订单:{}", lastOrderList);
         ProcessedOrder existProcessOrder = processedOrderMapper.selectByDate(timestamp);
         if(existProcessOrder != null){
             Gson gson = new Gson();
-            List<String> orderNoList = gson.fromJson(existProcessOrder.getOrderNoList(), new TypeToken<List<String>>(){}.getType());
+            List<String> orderNoList = gson.fromJson(existProcessOrder.getBuyOrderNoList(), new TypeToken<List<String>>(){}.getType());
             List<String> handlerList = new ArrayList<>(lastOrderList);
             //获取未处理订单
             lastOrderList.removeAll(orderNoList);
             log.info("本次处理订单:{}", lastOrderList);
             for (String orderNo : lastOrderList) {
-                BuyDetailResp detailResp = uuApi.buyOrderDetail(new BuyDetailReq(orderNo)).getData();
-                updateWallet(detailResp);
-                updateInventory(detailResp);
+                OrderDetailResp detailResp = uuApi.orderDetail(new OrderDetailReq(orderNo)).getData();
+                updateWalletWhenBuy(detailResp);
+                updateInventoryWhenBuy(detailResp);
             }
-            updateConsumerOrder(existProcessOrder, handlerList);
+            updateConsumerOrder(existProcessOrder, handlerList,1);
         }else {
 
             for (String orderNo : lastOrderList) {
-                BuyDetailResp detailResp = uuApi.buyOrderDetail(new BuyDetailReq(orderNo)).getData();
-                updateWallet(detailResp);
-                updateInventory(detailResp);
+                OrderDetailResp detailResp = uuApi.orderDetail(new OrderDetailReq(orderNo)).getData();
+                updateWalletWhenBuy(detailResp);
+                updateInventoryWhenBuy(detailResp);
             }
 
-            recordConsumerOrder(timestamp,lastOrderList);
+            recordConsumerOrder(timestamp,lastOrderList,1);
         }
 
     }
 
-    public void updateWallet(BuyDetailResp detailResp) {
+    public void updateWalletWhenBuy(OrderDetailResp detailResp) {
         Wallet myWallet = walletMapper.selectById(1);
         log.info("支付方式={},金额={}",detailResp.getPaymentTypeVO().getName(),detailResp.getAmount().getAmount());
         if(!"余额".equalsIgnoreCase(detailResp.getPaymentTypeVO().getName())) {
@@ -108,13 +110,15 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    public void updateInventory( BuyDetailResp detailResp) {
+    public void updateInventoryWhenBuy(OrderDetailResp detailResp) {
         String commodityName = detailResp.getUserCommodityVOList().get(0).getCommodityVOList().get(0).getName();
         if(SkinTypeEnum.needMerge(commodityName)) {
             SkinItem existSkinItem = skinItemMapper.selectBySkinName(commodityName);
             if(existSkinItem != null) {
                 existSkinItem.setPurchasePrice(String.valueOf((new BigDecimal(existSkinItem.getPurchasePrice()).add(new BigDecimal(detailResp.getAmount().getAmount())))));
                 existSkinItem.setQuantity(existSkinItem.getQuantity() + detailResp.getCommodityNum() - detailResp.getOrderFailNum() );
+                existSkinItem.setPurchaseAvgPrice(new BigDecimal(existSkinItem.getPurchasePrice()).divide(new BigDecimal(existSkinItem.getQuantity()), 2, RoundingMode.HALF_UP).toString());
+                existSkinItem.setRemainingQuantity(existSkinItem.getQuantity() - existSkinItem.getSaleQuantity());
                 skinItemMapper.updateById(existSkinItem);
             }else {
                 SkinItem skinItem = new SkinItem();
@@ -126,7 +130,7 @@ public class OrderServiceImpl implements OrderService {
             }
         }else {
             List<SkinItem> list = new ArrayList<>();
-            for (BuyDetailResp.CommodityVO commodityVO : detailResp.getUserCommodityVOList().get(0).getCommodityVOList()) {
+            for (OrderDetailResp.CommodityVO commodityVO : detailResp.getUserCommodityVOList().get(0).getCommodityVOList()) {
                 SkinItem skinItem = new SkinItem();
                 skinItem.setMerge(false);
                 skinItem.setName(commodityVO.getName());
@@ -139,16 +143,104 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    public void recordConsumerOrder(Long timestamp, List<String> lastOrderList) {
+    public void recordConsumerOrder(Long timestamp, List<String> lastOrderList,int orderType) {
         ProcessedOrder processedOrderNew = new ProcessedOrder();
-        processedOrderNew.setOrderNoList(new Gson().toJson(lastOrderList));
+        if(orderType == 1){
+            processedOrderNew.setBuyOrderNoList(new Gson().toJson(lastOrderList));
+        }else {
+            processedOrderNew.setSaleOrderNoList(new Gson().toJson(lastOrderList));
+        }
         processedOrderNew.setTimestamp(timestamp);
         processedOrderMapper.insert(processedOrderNew);
     }
 
-    public void updateConsumerOrder(ProcessedOrder existProcessOrder,List<String> lastOrderList) {
-        existProcessOrder.setOrderNoList(new Gson().toJson(lastOrderList));
+    public void updateConsumerOrder(ProcessedOrder existProcessOrder,List<String> lastOrderList,int orderType) {
+        //1是购买订单
+        if(orderType == 1){
+            existProcessOrder.setBuyOrderNoList(new Gson().toJson(lastOrderList));
+        }else {
+            //出售订单
+            existProcessOrder.setSaleOrderNoList(new Gson().toJson(lastOrderList));
+        }
         processedOrderMapper.updateById(existProcessOrder);
     }
 
+    @Override
+    public void saleOrderHandler() {
+        OrderListResp resp = uuApi.sellList(new QueryOrderListReq(100)).getData();
+        //获取今日凌晨时间戳
+        LocalDateTime midnight = LocalDate.now().atStartOfDay();
+        long timestamp = midnight.toInstant(ZoneOffset.ofHours(8)).toEpochMilli();
+        ProcessedOrder order = processedOrderMapper.selectById(1);
+        Long init = order.getTimestamp();
+        if(init == null) {
+            log.info("项目没有初始化本地库存,不进行购买订单的处理,请先初始化");
+            return;
+        }
+        List<String> lastOrderList = resp.getOrderList().stream().filter(e -> e.getFinishOrderTime() >= timestamp && e.getFinishOrderTime() > init).map(OrderListResp.Order::getOrderNo).collect(Collectors.toList());
+        if(CollectionUtils.isEmpty(lastOrderList)) {
+            log.info("今日没有出售订单");
+            return;
+        }
+
+        log.info("今日新增出售订单:{}", lastOrderList);
+        ProcessedOrder existProcessOrder = processedOrderMapper.selectByDate(timestamp);
+        if(existProcessOrder != null){
+            Gson gson = new Gson();
+            List<String> orderNoList = gson.fromJson(existProcessOrder.getSaleOrderNoList(), new TypeToken<List<String>>(){}.getType());
+            List<String> handlerList = new ArrayList<>(lastOrderList);
+            //获取未处理订单
+            lastOrderList.removeAll(orderNoList);
+            log.info("本次处理订单:{}", lastOrderList);
+            for (String orderNo : lastOrderList) {
+                OrderDetailResp detailResp = uuApi.orderDetail(new OrderDetailReq(orderNo)).getData();
+                updateWalletWhenSale(detailResp);
+                updateInventoryWhenSale(detailResp);
+            }
+            updateConsumerOrder(existProcessOrder, handlerList,2);
+        }else{
+            for (String orderNo : lastOrderList) {
+                OrderDetailResp detailResp = uuApi.orderDetail(new OrderDetailReq(orderNo)).getData();
+                updateWalletWhenSale(detailResp);
+                updateInventoryWhenSale(detailResp);
+            }
+            recordConsumerOrder(timestamp,lastOrderList,2);
+        }
+
+    }
+
+    public void updateWalletWhenSale(OrderDetailResp detailResp) {
+        Wallet myWallet = walletMapper.selectById(1);
+        log.info("出售金额转入余额");
+        log.info("orderId={},出售金额={}",detailResp.getOrderNumber(),detailResp.getAmount().getAmount());
+        myWallet.setBalance(String.valueOf(new BigDecimal(myWallet.getBalance()).add(new BigDecimal(detailResp.getAmount().getAmount()))));
+        walletMapper.updateById(myWallet);
+
+    }
+
+    public void updateInventoryWhenSale(OrderDetailResp detailResp) {
+        String commodityName = detailResp.getUserCommodityVOList().get(0).getCommodityVOList().get(0).getName();
+        if(SkinTypeEnum.needMerge(commodityName)) {
+            SkinItem existSkinItem = skinItemMapper.selectBySkinName(commodityName);
+            existSkinItem.setSaleQuantity(existSkinItem.getSaleQuantity() + detailResp.getCommodityNum() - detailResp.getOrderFailNum());
+            existSkinItem.setSalePrice(StringUtils.hasText(existSkinItem.getSalePrice()) ?
+                    new BigDecimal(existSkinItem.getSalePrice()).add(new BigDecimal(detailResp.getAmount().getAmount())).toString() : detailResp.getAmount().getAmount());
+            existSkinItem.setRemainingQuantity(existSkinItem.getQuantity() - existSkinItem.getSaleQuantity());
+            existSkinItem.setSaleAvgPrice(new BigDecimal(existSkinItem.getSalePrice()).divide(new BigDecimal(existSkinItem.getSaleQuantity()), 2, RoundingMode.HALF_UP).toString());
+            if(existSkinItem.getRemainingQuantity() == 0) {
+                existSkinItem.setDeleted(1);
+            }
+            skinItemMapper.updateById(existSkinItem);
+        }else {
+            for (OrderDetailResp.CommodityVO commodityVO : detailResp.getUserCommodityVOList().get(0).getCommodityVOList()) {
+                SkinItem existSkinItem = skinItemMapper.selectBySkinNameAndAbrade(commodityName,commodityVO.getAbrade());
+                existSkinItem.setRemainingQuantity(0);
+                existSkinItem.setSaleQuantity(1);
+                existSkinItem.setSalePrice(commodityVO.getPrice());
+                existSkinItem.setDeleted(1);
+                //TODO 优化：批量更新
+                skinItemMapper.updateById(existSkinItem);
+            }
+        }
+    }
 }

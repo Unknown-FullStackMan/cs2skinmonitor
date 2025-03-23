@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Slf4j
-public class PullBuyOrderTask {
+public class OrderScheduleTask {
 
     @Autowired
     private OrderService orderService;
@@ -23,5 +23,12 @@ public class PullBuyOrderTask {
         log.info("定时任务 pullBuyOrders 执行");
         orderService.buyOrderHandler();
         log.info("定时任务 pullBuyOrders执行完成");
+    }
+
+    @Scheduled(cron ="0 1 * * * *")
+    public void pullSaleOrders() {
+        log.info("定时任务 saleOrderHandler 执行");
+        orderService.saleOrderHandler();
+        log.info("定时任务 saleOrderHandler执行完成");
     }
 }

@@ -5,8 +5,6 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
-import java.util.Date;
-
 
 /**
  * @Author Simple.Mu
@@ -22,7 +20,9 @@ public class ProcessedOrder {
 
     private Long timestamp;
 
-    private String orderNoList;
+    private String buyOrderNoList;
+
+    private String saleOrderNoList;
 
 
 }

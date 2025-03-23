@@ -10,7 +10,7 @@ import java.util.List;
  * @Description
  */
 @Data
-public class BuyDetailResp {
+public class OrderDetailResp {
     private String orderNumber;
 
     private PaymentTypeVo paymentTypeVO;
