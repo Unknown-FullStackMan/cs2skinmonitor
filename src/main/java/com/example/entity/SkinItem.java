@@ -45,6 +45,9 @@ public class SkinItem {
     //来源
     private String from;
 
+    //盈利
+    private String profit;
+
     @TableLogic
     private Integer deleted = 0;
 
