@@ -69,30 +69,43 @@ public class OrderServiceImpl implements OrderService {
 
         log.info("今日新增购买订单:{}", lastOrderList);
         ProcessedOrder existProcessOrder = processedOrderMapper.selectByDate(timestamp);
-        if(existProcessOrder != null){
+        if(existProcessOrder != null && StringUtils.hasText(existProcessOrder.getBuyOrderNoList())) {
             Gson gson = new Gson();
             List<String> orderNoList = gson.fromJson(existProcessOrder.getBuyOrderNoList(), new TypeToken<List<String>>(){}.getType());
-            List<String> handlerList = new ArrayList<>(lastOrderList);
             //获取未处理订单
             lastOrderList.removeAll(orderNoList);
             log.info("本次处理订单:{}", lastOrderList);
-            for (String orderNo : lastOrderList) {
-                OrderDetailResp detailResp = uuApi.orderDetail(new OrderDetailReq(orderNo)).getData();
-                updateWalletWhenBuy(detailResp);
-                updateInventoryWhenBuy(detailResp);
+            if(CollectionUtils.isEmpty(lastOrderList)) {
+                log.info("今日已经处理完购买订单");
+                return;
             }
-            updateConsumerOrder(existProcessOrder, handlerList,1);
+            List<String> alreadyHandlerList = handlerBuyOrder(lastOrderList);
+            //新增已处理的订单
+            orderNoList.addAll(alreadyHandlerList);
+            updateConsumerOrder(existProcessOrder, orderNoList,1);
         }else {
-
-            for (String orderNo : lastOrderList) {
-                OrderDetailResp detailResp = uuApi.orderDetail(new OrderDetailReq(orderNo)).getData();
-                updateWalletWhenBuy(detailResp);
-                updateInventoryWhenBuy(detailResp);
-            }
-
-            recordConsumerOrder(timestamp,lastOrderList,1);
+            log.info("第一次出来当天订单:{}", lastOrderList);
+            List<String> alreadyHandlerList = handlerBuyOrder(lastOrderList);
+            recordConsumerOrder(timestamp,alreadyHandlerList,1);
         }
 
+    }
+
+    private List<String> handlerBuyOrder(List<String> OrderList) {
+        List<String> alreadyHandlerList = new ArrayList<>(OrderList);
+        for (String orderNo : OrderList) {
+            OrderDetailResp detailResp;
+            try{
+                detailResp = uuApi.orderDetail(new OrderDetailReq(orderNo)).getData();
+            }catch (Exception e) {
+                log.error("订单详情获取失败:{}",orderNo);
+                break;
+            }
+            updateWalletWhenBuy(detailResp);
+            updateInventoryWhenBuy(detailResp);
+            alreadyHandlerList.add(orderNo);
+        }
+       return alreadyHandlerList;
     }
 
     public void updateWalletWhenBuy(OrderDetailResp detailResp) {
