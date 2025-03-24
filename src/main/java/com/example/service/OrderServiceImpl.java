@@ -119,7 +119,7 @@ public class OrderServiceImpl implements OrderService {
                 existSkinItem.setPurchasePrice(String.valueOf((new BigDecimal(existSkinItem.getPurchasePrice()).add(new BigDecimal(detailResp.getAmount().getAmount())))));
                 existSkinItem.setQuantity(existSkinItem.getQuantity() + detailResp.getCommodityNum() - detailResp.getOrderFailNum() );
                 existSkinItem.setPurchaseAvgPrice(new BigDecimal(existSkinItem.getPurchasePrice()).divide(new BigDecimal(existSkinItem.getQuantity()), 2, RoundingMode.HALF_UP).toString());
-                existSkinItem.setRemainingQuantity(existSkinItem.getQuantity() - existSkinItem.getSaleQuantity());
+                existSkinItem.setRemainingQuantity(existSkinItem.getRemainingQuantity() + detailResp.getCommodityNum() - detailResp.getOrderFailNum());
                 skinItemMapper.updateById(existSkinItem);
             }else {
                 SkinItem skinItem = new SkinItem();
@@ -127,6 +127,7 @@ public class OrderServiceImpl implements OrderService {
                 skinItem.setName(commodityName);
                 skinItem.setQuantity(detailResp.getCommodityNum() - detailResp.getOrderFailNum());
                 skinItem.setPurchasePrice(detailResp.getAmount().getAmount());
+                skinItem.setPurchaseAvgPrice(new BigDecimal(skinItem.getPurchasePrice()).divide(new BigDecimal(skinItem.getQuantity()), 2, RoundingMode.HALF_UP).toString());
                 skinItemMapper.insert(skinItem);
             }
         }else {
@@ -138,6 +139,7 @@ public class OrderServiceImpl implements OrderService {
                 skinItem.setQuantity(1);
                 skinItem.setAbrade(commodityVO.getAbrade());
                 skinItem.setPurchasePrice(commodityVO.getPrice());
+                skinItem.setPurchaseAvgPrice(commodityVO.getPrice());
                 list.add(skinItem);
             }
             skinItemMapper.insertBatch(list);
