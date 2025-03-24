@@ -22,6 +22,11 @@ public class AuthController {
     @Autowired
     private AuthMapper authMapper;
 
+    /**
+     * uu jwt token可以从uu的pc页面获取
+     * @param token
+     * @return
+     */
     @GetMapping("/uu")
     public BResponse<String> valuation(@RequestParam String token) {
         Auth auth = authMapper.selectById(1);

@@ -15,9 +15,14 @@ public class Wallet {
     private Long id;
 
     /**
-     * 成本
+     * 总成本
      */
     private String cost;
+
+    /**
+     * 当前成本
+     */
+    private String currentCost;
 
     /**
      * 当前市值

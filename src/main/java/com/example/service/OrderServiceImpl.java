@@ -99,13 +99,14 @@ public class OrderServiceImpl implements OrderService {
         Wallet myWallet = walletMapper.selectById(1);
         log.info("支付方式={},金额={}",detailResp.getPaymentTypeVO().getName(),detailResp.getAmount().getAmount());
         if(!"余额".equalsIgnoreCase(detailResp.getPaymentTypeVO().getName())) {
-            log.info("不是余额支付，成本需要增加");
+            log.info("不是余额支付，总成本和当前成本都需要增加");
+            myWallet.setCurrentCost(String.valueOf(new BigDecimal(myWallet.getCurrentCost()).add(new BigDecimal(detailResp.getAmount().getAmount()))));
             myWallet.setCost(String.valueOf(new BigDecimal(myWallet.getCost()).add(new BigDecimal(detailResp.getAmount().getAmount()))));
             walletMapper.updateById(myWallet);
         }else {
-            log.info("余额支付，需要减去balance");
+            log.info("余额支付，需要减去balance,总成本不变,当前成本增加");
             myWallet.setBalance(String.valueOf(new BigDecimal(myWallet.getBalance()).subtract(new BigDecimal(detailResp.getAmount().getAmount()))));
-            myWallet.setCost(String.valueOf(new BigDecimal(myWallet.getCost()).add(new BigDecimal(detailResp.getAmount().getAmount()))));
+            myWallet.setCurrentCost(String.valueOf(new BigDecimal(myWallet.getCurrentCost()).add(new BigDecimal(detailResp.getAmount().getAmount()))));
             walletMapper.updateById(myWallet);
         }
     }
@@ -212,8 +213,10 @@ public class OrderServiceImpl implements OrderService {
     public void updateWalletWhenSale(OrderDetailResp detailResp) {
         Wallet myWallet = walletMapper.selectById(1);
         log.info("出售金额转入余额");
+        log.info("余额balance增加,总成本不变,当前成本减少");
         log.info("orderId={},出售金额={}",detailResp.getOrderNumber(),detailResp.getAmount().getAmount());
         myWallet.setBalance(String.valueOf(new BigDecimal(myWallet.getBalance()).add(new BigDecimal(detailResp.getAmount().getAmount()))));
+        myWallet.setCurrentCost(String.valueOf(new BigDecimal(myWallet.getCurrentCost()).subtract(new BigDecimal(detailResp.getAmount().getAmount()))));
         walletMapper.updateById(myWallet);
 
     }
@@ -237,6 +240,7 @@ public class OrderServiceImpl implements OrderService {
                 existSkinItem.setRemainingQuantity(0);
                 existSkinItem.setSaleQuantity(1);
                 existSkinItem.setSalePrice(commodityVO.getPrice());
+                existSkinItem.setSaleAvgPrice(commodityVO.getPrice());
                 existSkinItem.setDeleted(1);
                 //TODO 优化：批量更新
                 skinItemMapper.updateById(existSkinItem);

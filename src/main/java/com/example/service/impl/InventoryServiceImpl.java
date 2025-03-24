@@ -51,7 +51,7 @@ public class InventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinItem> i
         BaseResponse<InventoryResp> inventoryResponse = uuApi.list(new InventoryReq(1000));
         InventoryResp inventory = inventoryResponse.getData();
         log.info("库存数量:{} ,页数数量：{}", inventory.getTotalCount(),inventory.getTotalPages());
-        Double count = saveToDB(inventory);
+        Double currentCost = saveToDB(inventory);
 
 //        if(inventory.getTotalPages() > 1 ) {
 //            int pages = ( inventory.getItemCount() % 50 )==0 ?  inventory.getItemCount() : (inventory.getItemCount() / 50) + 1;
@@ -62,8 +62,9 @@ public class InventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinItem> i
 //            }
 //        }
         Wallet wallet = new Wallet();
-        wallet.setCost(String.valueOf(count));
         wallet.setBalance(uuApi.account(new AccountInfoReq()).getData().getBalance());
+        wallet.setCost(new BigDecimal(currentCost).add(new BigDecimal(wallet.getBalance())).toString());
+        wallet.setCurrentCost(String.valueOf(currentCost));
         walletService.initWallet(wallet);
 
         //借用ProcessedOrder表,记录初始化的时间,避免定时任务拉去订单数据重复
@@ -133,6 +134,7 @@ public class InventoryServiceImpl extends ServiceImpl<SkinItemMapper,SkinItem> i
         skinAssetTotalInfoVo.setMarketValue(valuation.substring(1));
         skinAssetTotalInfoVo.setCost(wallet.getCost());
         skinAssetTotalInfoVo.setBalance(wallet.getBalance());
+        //计算总盈亏：估值+余额-总成本
         skinAssetTotalInfoVo.setTotalProFitAndLoss(new BigDecimal(wallet.getBalance()).add(new BigDecimal(valuation.substring(1))).subtract(new BigDecimal(wallet.getCost())).doubleValue());
         return skinAssetTotalInfoVo;
     }
