@@ -67,24 +67,27 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
-        log.info("今日新增购买订单:{}", lastOrderList);
+        log.info("今日购买订单:{}", lastOrderList);
         ProcessedOrder existProcessOrder = processedOrderMapper.selectByDate(timestamp);
         if(existProcessOrder != null && StringUtils.hasText(existProcessOrder.getBuyOrderNoList())) {
             Gson gson = new Gson();
             List<String> orderNoList = gson.fromJson(existProcessOrder.getBuyOrderNoList(), new TypeToken<List<String>>(){}.getType());
+            log.info("已处理订单：{}",orderNoList);
             //获取未处理订单
             lastOrderList.removeAll(orderNoList);
-            log.info("本次处理订单:{}", lastOrderList);
+            log.info("本次需要处理订单:{}", lastOrderList);
             if(CollectionUtils.isEmpty(lastOrderList)) {
                 log.info("今日已经处理完购买订单");
                 return;
             }
             List<String> alreadyHandlerList = handlerBuyOrder(lastOrderList);
+            log.info("本次处理完成订单:{}", alreadyHandlerList);
             //新增已处理的订单
             orderNoList.addAll(alreadyHandlerList);
+            log.info("今日全部已处理订单：{}",orderNoList);
             updateConsumerOrder(existProcessOrder, orderNoList,1);
         }else {
-            log.info("第一次出来当天订单:{}", lastOrderList);
+            log.info("第一次处理当天购买订单:{}", lastOrderList);
             List<String> alreadyHandlerList = handlerBuyOrder(lastOrderList);
             recordConsumerOrder(timestamp,alreadyHandlerList,1);
         }
@@ -92,7 +95,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private List<String> handlerBuyOrder(List<String> OrderList) {
-        List<String> alreadyHandlerList = new ArrayList<>(OrderList);
+        List<String> alreadyHandlerList = new ArrayList<>();
         for (String orderNo : OrderList) {
             OrderDetailResp detailResp;
             try{
@@ -107,6 +110,8 @@ public class OrderServiceImpl implements OrderService {
         }
        return alreadyHandlerList;
     }
+
+
 
     public void updateWalletWhenBuy(OrderDetailResp detailResp) {
         Wallet myWallet = walletMapper.selectById(1);
@@ -199,30 +204,49 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
-        log.info("今日新增出售订单:{}", lastOrderList);
+        log.info("今日出售订单:{}", lastOrderList);
         ProcessedOrder existProcessOrder = processedOrderMapper.selectByDate(timestamp);
-        if(existProcessOrder != null){
+        if(existProcessOrder != null && StringUtils.hasText(existProcessOrder.getSaleOrderNoList())){
             Gson gson = new Gson();
             List<String> orderNoList = gson.fromJson(existProcessOrder.getSaleOrderNoList(), new TypeToken<List<String>>(){}.getType());
-            List<String> handlerList = new ArrayList<>(lastOrderList);
+            log.info("已处理订单：{}",orderNoList);
             //获取未处理订单
             lastOrderList.removeAll(orderNoList);
-            log.info("本次处理订单:{}", lastOrderList);
-            for (String orderNo : lastOrderList) {
-                OrderDetailResp detailResp = uuApi.orderDetail(new OrderDetailReq(orderNo)).getData();
-                updateWalletWhenSale(detailResp);
-                updateInventoryWhenSale(detailResp);
+            log.info("本次需要处理订单:{}", lastOrderList);
+            if(CollectionUtils.isEmpty(lastOrderList)) {
+                log.info("今日已经处理完出售订单");
+                return;
             }
-            updateConsumerOrder(existProcessOrder, handlerList,2);
+
+            List<String> alreadyHandlerList = handlerBuySale(lastOrderList);
+            log.info("本次处理完成订单:{}", alreadyHandlerList);
+            //新增已处理的订单
+            orderNoList.addAll(alreadyHandlerList);
+            log.info("今日全部已处理订单：{}",orderNoList);
+            updateConsumerOrder(existProcessOrder, orderNoList,1);
         }else{
-            for (String orderNo : lastOrderList) {
-                OrderDetailResp detailResp = uuApi.orderDetail(new OrderDetailReq(orderNo)).getData();
-                updateWalletWhenSale(detailResp);
-                updateInventoryWhenSale(detailResp);
-            }
-            recordConsumerOrder(timestamp,lastOrderList,2);
+            log.info("第一次处理当天出售订单:{}", lastOrderList);
+            List<String> alreadyHandlerList = handlerBuySale(lastOrderList);
+            recordConsumerOrder(timestamp,alreadyHandlerList,2);
         }
 
+    }
+
+    private List<String> handlerBuySale(List<String> OrderList) {
+        List<String> alreadyHandlerList = new ArrayList<>();
+        for (String orderNo : OrderList) {
+            OrderDetailResp detailResp;
+            try{
+                detailResp = uuApi.orderDetail(new OrderDetailReq(orderNo)).getData();
+            }catch (Exception e) {
+                log.error("订单详情获取失败:{}",orderNo);
+                break;
+            }
+            updateWalletWhenSale(detailResp);
+            updateInventoryWhenSale(detailResp);
+            alreadyHandlerList.add(orderNo);
+        }
+        return alreadyHandlerList;
     }
 
     public void updateWalletWhenSale(OrderDetailResp detailResp) {
