@@ -233,7 +233,8 @@ public class OrderServiceImpl implements OrderService {
             existSkinItem.setRemainingQuantity(existSkinItem.getQuantity() - existSkinItem.getSaleQuantity());
             existSkinItem.setSaleAvgPrice(new BigDecimal(existSkinItem.getSalePrice()).divide(new BigDecimal(existSkinItem.getSaleQuantity()), 2, RoundingMode.HALF_UP).toString());
             if(existSkinItem.getRemainingQuantity() == 0) {
-                existSkinItem.setDeleted(1);
+                skinItemMapper.updateById(existSkinItem);
+                skinItemMapper.deleteById(existSkinItem);
             }
             skinItemMapper.updateById(existSkinItem);
         }else {
@@ -243,9 +244,9 @@ public class OrderServiceImpl implements OrderService {
                 existSkinItem.setSaleQuantity(1);
                 existSkinItem.setSalePrice(commodityVO.getPrice());
                 existSkinItem.setSaleAvgPrice(commodityVO.getPrice());
-                existSkinItem.setDeleted(1);
-                //TODO 优化：批量更新
                 skinItemMapper.updateById(existSkinItem);
+                skinItemMapper.deleteById(existSkinItem);
+                //TODO 优化：批量更新
             }
         }
     }
