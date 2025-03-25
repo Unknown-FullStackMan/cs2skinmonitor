@@ -28,9 +28,9 @@ public interface SkinItemMapper extends BaseMapper<SkinItem> {
 
     @Insert({
             "<script>",
-            "INSERT INTO skin_item (name, abrade,merge,purchase_price,quantity) VALUES",
+            "INSERT INTO skin_item (name, abrade,merge,purchase_price,quantity,purchase_avg_price) VALUES",
             "<foreach collection='list' item='item' separator=','>",
-            "(#{item.name}, #{item.abrade}),#{item.merge}),#{item.purchasePrice}),#{item.quantity})",
+            "( #{item.name}, #{item.abrade},#{item.merge},#{item.purchasePrice},#{item.quantity},#{item.purchaseAvgPrice} )",
             "</foreach>",
             "</script>"
     })

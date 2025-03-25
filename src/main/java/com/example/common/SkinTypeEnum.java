@@ -23,6 +23,7 @@ public enum SkinTypeEnum {
     WEAPON("武器"),
     GLOVE("手套"),
     KNIFE("匕首"),
+    PACKAGE("纪念包"),
     UNKNOWN("未知");
 
     private String typeName;
@@ -38,7 +39,7 @@ public enum SkinTypeEnum {
     }
 
     public static List<String> noAbradeSkinList() {
-        return Arrays.asList(STICKER.typeName, WEAPON_BOX.typeName, CAPSULE.typeName, GRAFFITI.typeName);
+        return Arrays.asList(STICKER.typeName, WEAPON_BOX.typeName, CAPSULE.typeName, GRAFFITI.typeName,PACKAGE.typeName);
     }
 
     public static boolean needMerge(String name) {
